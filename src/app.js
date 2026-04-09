@@ -1,23 +1,30 @@
 const express = require('express');
 
-function createApp({ authMiddleware, kafkaService, config }) {
+function createApp({ authMiddleware, kafkaService, oracleService, config }) {
 	const app = express();
 	app.use(express.json());
 
 	app.get('/', (_req, res) => {
 		res.json({
-			message: 'API lista para usar Apache Kafka y Keycloak',
+			message: 'Sistema de Monitoreo de Pacientes UPTC - API',
 			endpoints: {
 				health: '/health',
 				me: '/api/me',
 				events: '/api/events',
+				patients: '/patient',
+				alerts: '/alert',
+				devices: '/device',
+				rooms: '/room',
+				alertTypes: '/alert-type',
 			},
 		});
 	});
 
-	app.get('/health', (_req, res) => {
+	app.get('/health', async (_req, res) => {
+		const dbStatus = await oracleService.testConnection();
 		res.json({
 			status: 'ok',
+			database: dbStatus ? 'connected' : 'disconnected',
 			kafka: {
 				brokers: config.kafka.brokers,
 				topic: config.kafka.topic,

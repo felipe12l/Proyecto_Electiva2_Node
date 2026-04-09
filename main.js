@@ -3,18 +3,26 @@ require('dotenv').config();
 const { createApp } = require('./src/app');
 const { createKafkaService } = require('./src/services/kafkaService');
 const { createAuthMiddleware } = require('./src/middleware/requireAuth');
+const { createOracleService } = require('./src/services/oracleService');
 const { config } = require('./src/config/env');
 
 async function bootstrap() {
 	const kafkaService = createKafkaService(config.kafka);
 	const authMiddleware = createAuthMiddleware(config.keycloak);
+	const oracleService = createOracleService(config.oracle);
 	const app = createApp({
 		authMiddleware,
 		kafkaService,
+		oracleService,
 		config,
 	});
 
 	try {
+		// Initialize Oracle connection
+		await oracleService.initialize();
+		await oracleService.testConnection();
+
+		// Start Kafka consumer
 		await kafkaService.startConsumer();
 
 		const server = app.listen(config.port, () => {
@@ -27,8 +35,10 @@ async function bootstrap() {
 
 		async function shutdown(signal) {
 			console.log(`\n${signal} recibido, cerrando conexiones...`);
-			server.close(() => {
-				kafkaService.disconnect().finally(() => process.exit(0));
+			server.close(async () => {
+				await kafkaService.disconnect();
+				await oracleService.close();
+				process.exit(0);
 			});
 		}
 
