@@ -72,7 +72,7 @@ app.post('/login', async (req, res) => {
 
         const data = await kcRes.json();
         if(!kcRes.ok) return res.status(401).json({ error: 'Credenciales inválidas o Keycloak inaccesible', detail: data });
-        return res.json({ access_token: data.access_token });
+        return res.json({ token: data.access_token });
     } catch(err) {
         return res.status(500).json({ error: 'Fallo al autenticar contra Keycloak' });
     }
@@ -127,51 +127,165 @@ app.delete('/patient/:patient_id', keycloak.protect(), async (req, res) => {
 // RESTO DE LOS CONTROLADORES (Device, Room, Alert, Alert-Type)
 // ==========================================
 
-function bindCrudRoutes(path, DAOClass, entityName) {
-    app.get(path, keycloak.protect(), async (req, res) => {
-        try { res.json(await DAOClass.findAll()); } 
-        catch (err) { res.status(500).json({ error: err.message }); }
-    });
+// --- RUTAS PARA DEVICES (DEVICE / WEARABLE) ---
+app.post('/device', keycloak.protect(), async (req, res) => {
+    try {
+        const newDevice = await WearableDAO.create(req.body);
+        await triggerKafka(req, 'CREATE_DEVICE', newDevice);
+        res.status(201).json(newDevice);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-    app.get(`${path}/:id`, keycloak.protect(), async (req, res) => {
-        try { 
-            const d = await DAOClass.findById(req.params.id); 
-            d ? res.json(d) : res.status(404).json({ error: 'Not found' });
-        } catch (err) { res.status(500).json({ error: err.message }); }
-    });
+app.get('/device', keycloak.protect(), async (req, res) => {
+    try { res.json(await WearableDAO.findAll()); } 
+    catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-    app.post(path, keycloak.protect(), async (req, res) => {
-        try {
-            const data = await DAOClass.create(req.body);
-            await triggerKafka(req, `CREATE_${entityName.toUpperCase()}`, data);
-            res.status(201).json(data);
-        } catch (err) { res.status(500).json({ error: err.message }); }
-    });
+app.get('/device/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const data = await WearableDAO.findById(req.params.id);
+        if(!data) return res.status(404).json({ error: 'Not found' });
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-    app.put(`${path}/:id`, keycloak.protect(), async (req, res) => {
-        try {
-            const updated = await DAOClass.update(req.params.id, req.body);
-            if(!updated) return res.status(404).json({ error: 'Not found' });
-            await triggerKafka(req, `UPDATE_${entityName.toUpperCase()}`, req.body);
-            res.json({ success: true });
-        } catch (err) { res.status(500).json({ error: err.message }); }
-    });
+app.put('/device/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const updated = await WearableDAO.update(req.params.id, req.body);
+        if(!updated) return res.status(404).json({ error: 'Not found' });
+        await triggerKafka(req, 'UPDATE_DEVICE', req.body);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-    app.delete(`${path}/:id`, keycloak.protect(), async (req, res) => {
-        try {
-            const deleted = await DAOClass.delete(req.params.id);
-            if(!deleted) return res.status(404).json({ error: 'Not found' });
-            await triggerKafka(req, `DELETE_${entityName.toUpperCase()}`, { id: req.params.id });
-            res.json({ success: true });
-        } catch (err) { res.status(500).json({ error: err.message }); }
-    });
-}
+app.delete('/device/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const deleted = await WearableDAO.delete(req.params.id);
+        if(!deleted) return res.status(404).json({ error: 'Not found' });
+        await triggerKafka(req, 'DELETE_DEVICE', { id: req.params.id });
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-// Bindeamos los demas DAOs automáticamente:
-bindCrudRoutes('/device', WearableDAO, 'DEVICE'); // IoT Device -> mapea a Wearable
-bindCrudRoutes('/room', RoomDAO, 'ROOM');
-bindCrudRoutes('/alert', AlertDAO, 'ALERT');
-bindCrudRoutes('/alert-type', AlertTypeDAO, 'ALERT_TYPE');
+// --- RUTAS PARA ROOMS (ROOM) ---
+app.post('/room', keycloak.protect(), async (req, res) => {
+    try {
+        const newRoom = await RoomDAO.create(req.body);
+        await triggerKafka(req, 'CREATE_ROOM', newRoom);
+        res.status(201).json(newRoom);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/room', keycloak.protect(), async (req, res) => {
+    try { res.json(await RoomDAO.findAll()); } 
+    catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/room/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const data = await RoomDAO.findById(req.params.id);
+        if(!data) return res.status(404).json({ error: 'Not found' });
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/room/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const updated = await RoomDAO.update(req.params.id, req.body);
+        if(!updated) return res.status(404).json({ error: 'Not found' });
+        await triggerKafka(req, 'UPDATE_ROOM', req.body);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/room/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const deleted = await RoomDAO.delete(req.params.id);
+        if(!deleted) return res.status(404).json({ error: 'Not found' });
+        await triggerKafka(req, 'DELETE_ROOM', { id: req.params.id });
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- RUTAS PARA ALERTS (ALERT) ---
+app.post('/alert', keycloak.protect(), async (req, res) => {
+    try {
+        const newAlert = await AlertDAO.create(req.body);
+        await triggerKafka(req, 'CREATE_ALERT', newAlert);
+        res.status(201).json(newAlert);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/alert', keycloak.protect(), async (req, res) => {
+    try { res.json(await AlertDAO.findAll()); } 
+    catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/alert/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const data = await AlertDAO.findById(req.params.id);
+        if(!data) return res.status(404).json({ error: 'Not found' });
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/alert/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const updated = await AlertDAO.update(req.params.id, req.body);
+        if(!updated) return res.status(404).json({ error: 'Not found' });
+        await triggerKafka(req, 'UPDATE_ALERT', req.body);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/alert/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const deleted = await AlertDAO.delete(req.params.id);
+        if(!deleted) return res.status(404).json({ error: 'Not found' });
+        await triggerKafka(req, 'DELETE_ALERT', { id: req.params.id });
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- RUTAS PARA ALERT TYPES (ALERT_TYPE) ---
+app.post('/alert-type', keycloak.protect(), async (req, res) => {
+    try {
+        const newAlertType = await AlertTypeDAO.create(req.body);
+        await triggerKafka(req, 'CREATE_ALERT_TYPE', newAlertType);
+        res.status(201).json(newAlertType);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/alert-type', keycloak.protect(), async (req, res) => {
+    try { res.json(await AlertTypeDAO.findAll()); } 
+    catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/alert-type/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const data = await AlertTypeDAO.findById(req.params.id);
+        if(!data) return res.status(404).json({ error: 'Not found' });
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/alert-type/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const updated = await AlertTypeDAO.update(req.params.id, req.body);
+        if(!updated) return res.status(404).json({ error: 'Not found' });
+        await triggerKafka(req, 'UPDATE_ALERT_TYPE', req.body);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/alert-type/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const deleted = await AlertTypeDAO.delete(req.params.id);
+        if(!deleted) return res.status(404).json({ error: 'Not found' });
+        await triggerKafka(req, 'DELETE_ALERT_TYPE', { id: req.params.id });
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 
 // ==========================================
