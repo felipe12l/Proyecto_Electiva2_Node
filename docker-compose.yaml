@@ -49,7 +49,7 @@ services:
     environment:
       - ORACLE_PASSWORD=uptc
       - APP_USER=jorgeuptc
-      - APP_PASSWORD=uptc
+      - APP_USER_PASSWORD=uptc
     volumes:
       - ./oracledata:/opt/oracle/oradata
       - ./initdb:/container-entrypoint-initdb.d
