@@ -2,7 +2,9 @@ const express = require('express');
 const session = require('express-session');
 const Keycloak = require('keycloak-connect');
 const { initKafka, emitEvent } = require('./kafka');
-const { PatientDAO, AlertDAO, WearableDAO, RoomDAO, AlertTypeDAO } = require('./dao');
+const { PatientDAO, AlertDAO, WearableDAO, RoomDAO, AlertTypeDAO,
+        MedicalConditionDAO, EmergencyContactDAO,
+        PatientWearableDAO, PatientConditionDAO, PatientContactDAO } = require('./dao');
 
 const app = express();
 const port = 6000; // Todos los servicios salen por el puerto 6000
@@ -58,8 +60,13 @@ async function triggerKafka(req, action, resultData) {
         'patient': 'topic-servicio-patients',
         'alert': 'topic-servicio-alert',
         'alert-type': 'topic-servicio-alert-types',
-        'device': 'topic-servicio-devices', // Topic sugerido si creas uno de dispositivos
-        'room': 'topic-servicio-rooms',     // Topic sugerido si creas uno de cuartos
+        'device': 'topic-servicio-devices',
+        'room': 'topic-servicio-rooms',
+        'medical-condition': 'topic-servicio-medical-conditions',
+        'emergency-contact': 'topic-servicio-emergency-contacts',
+        'patient-wearable': 'topic-servicio-patient-wearables',
+        'patient-condition': 'topic-servicio-patient-conditions',
+        'patient-contact': 'topic-servicio-patient-contacts',
         'login': 'topic-autenticacion'
     };
     
@@ -321,6 +328,199 @@ app.delete('/alert-type/:id', keycloak.protect(), async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// --- RUTAS PARA MEDICAL CONDITIONS ---
+app.post('/medical-condition', keycloak.protect(), async (req, res) => {
+    try {
+        const newCondition = await MedicalConditionDAO.create(req.body);
+        await triggerKafka(req, 'CREATE_MEDICAL_CONDITION', newCondition);
+        res.status(201).json(newCondition);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/medical-condition', keycloak.protect(), async (req, res) => {
+    try { res.json(await MedicalConditionDAO.findAll()); }
+    catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/medical-condition/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const data = await MedicalConditionDAO.findById(req.params.id);
+        if(!data) return res.status(404).json({ error: 'Not found' });
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/medical-condition/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const updated = await MedicalConditionDAO.update(req.params.id, req.body);
+        if(!updated) return res.status(404).json({ error: 'Not found' });
+        await triggerKafka(req, 'UPDATE_MEDICAL_CONDITION', req.body);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/medical-condition/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const deleted = await MedicalConditionDAO.delete(req.params.id);
+        if(!deleted) return res.status(404).json({ error: 'Not found' });
+        await triggerKafka(req, 'DELETE_MEDICAL_CONDITION', { id: req.params.id });
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- RUTAS PARA EMERGENCY CONTACTS ---
+app.post('/emergency-contact', keycloak.protect(), async (req, res) => {
+    try {
+        const newContact = await EmergencyContactDAO.create(req.body);
+        await triggerKafka(req, 'CREATE_EMERGENCY_CONTACT', newContact);
+        res.status(201).json(newContact);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/emergency-contact', keycloak.protect(), async (req, res) => {
+    try { res.json(await EmergencyContactDAO.findAll()); }
+    catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/emergency-contact/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const data = await EmergencyContactDAO.findById(req.params.id);
+        if(!data) return res.status(404).json({ error: 'Not found' });
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/emergency-contact/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const updated = await EmergencyContactDAO.update(req.params.id, req.body);
+        if(!updated) return res.status(404).json({ error: 'Not found' });
+        await triggerKafka(req, 'UPDATE_EMERGENCY_CONTACT', req.body);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/emergency-contact/:id', keycloak.protect(), async (req, res) => {
+    try {
+        const deleted = await EmergencyContactDAO.delete(req.params.id);
+        if(!deleted) return res.status(404).json({ error: 'Not found' });
+        await triggerKafka(req, 'DELETE_EMERGENCY_CONTACT', { id: req.params.id });
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- RUTAS PARA RELACIONES PATIENT-WEARABLE ---
+app.post('/patient-wearable', keycloak.protect(), async (req, res) => {
+    try {
+        const newLink = await PatientWearableDAO.create(req.body);
+        await triggerKafka(req, 'CREATE_PATIENT_WEARABLE', newLink);
+        res.status(201).json(newLink);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/patient-wearable', keycloak.protect(), async (req, res) => {
+    try { res.json(await PatientWearableDAO.findAll()); }
+    catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/patient-wearable/patient/:patientId', keycloak.protect(), async (req, res) => {
+    try {
+        const data = await PatientWearableDAO.findByPatientId(req.params.patientId);
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/patient-wearable/patient/:patientId/wearable/:wearableId', keycloak.protect(), async (req, res) => {
+    try {
+        const data = await PatientWearableDAO.findByCompositeKey(req.params.patientId, req.params.wearableId);
+        if(!data) return res.status(404).json({ error: 'Not found' });
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/patient-wearable/patient/:patientId/wearable/:wearableId', keycloak.protect(), async (req, res) => {
+    try {
+        const deleted = await PatientWearableDAO.deleteByCompositeKey(req.params.patientId, req.params.wearableId);
+        if(!deleted) return res.status(404).json({ error: 'Not found' });
+        await triggerKafka(req, 'DELETE_PATIENT_WEARABLE', { patientId: req.params.patientId, wearableId: req.params.wearableId });
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- RUTAS PARA RELACIONES PATIENT-CONDITION ---
+app.post('/patient-condition', keycloak.protect(), async (req, res) => {
+    try {
+        const newLink = await PatientConditionDAO.create(req.body);
+        await triggerKafka(req, 'CREATE_PATIENT_CONDITION', newLink);
+        res.status(201).json(newLink);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/patient-condition', keycloak.protect(), async (req, res) => {
+    try { res.json(await PatientConditionDAO.findAll()); }
+    catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/patient-condition/patient/:patientId', keycloak.protect(), async (req, res) => {
+    try {
+        const data = await PatientConditionDAO.findByPatientId(req.params.patientId);
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/patient-condition/patient/:patientId/condition/:conditionId', keycloak.protect(), async (req, res) => {
+    try {
+        const data = await PatientConditionDAO.findByCompositeKey(req.params.patientId, req.params.conditionId);
+        if(!data) return res.status(404).json({ error: 'Not found' });
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/patient-condition/patient/:patientId/condition/:conditionId', keycloak.protect(), async (req, res) => {
+    try {
+        const deleted = await PatientConditionDAO.deleteByCompositeKey(req.params.patientId, req.params.conditionId);
+        if(!deleted) return res.status(404).json({ error: 'Not found' });
+        await triggerKafka(req, 'DELETE_PATIENT_CONDITION', { patientId: req.params.patientId, conditionId: req.params.conditionId });
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- RUTAS PARA RELACIONES PATIENT-CONTACT ---
+app.post('/patient-contact', keycloak.protect(), async (req, res) => {
+    try {
+        const newLink = await PatientContactDAO.create(req.body);
+        await triggerKafka(req, 'CREATE_PATIENT_CONTACT', newLink);
+        res.status(201).json(newLink);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/patient-contact', keycloak.protect(), async (req, res) => {
+    try { res.json(await PatientContactDAO.findAll()); }
+    catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/patient-contact/patient/:patientId', keycloak.protect(), async (req, res) => {
+    try {
+        const data = await PatientContactDAO.findByPatientId(req.params.patientId);
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/patient-contact/patient/:patientId/contact/:contactId', keycloak.protect(), async (req, res) => {
+    try {
+        const data = await PatientContactDAO.findByCompositeKey(req.params.patientId, req.params.contactId);
+        if(!data) return res.status(404).json({ error: 'Not found' });
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/patient-contact/patient/:patientId/contact/:contactId', keycloak.protect(), async (req, res) => {
+    try {
+        const deleted = await PatientContactDAO.deleteByCompositeKey(req.params.patientId, req.params.contactId);
+        if(!deleted) return res.status(404).json({ error: 'Not found' });
+        await triggerKafka(req, 'DELETE_PATIENT_CONTACT', { patientId: req.params.patientId, contactId: req.params.contactId });
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 // ==========================================
 // START SERVER
@@ -328,6 +528,6 @@ app.delete('/alert-type/:id', keycloak.protect(), async (req, res) => {
 app.listen(port, async () => {
     console.log(`API Server de Electiva 2 iniciando en el puerto ${port}...`);
     await initKafka();
-    console.log(`Rutas Habilitadas: /patient, /device, /room, /alert, /alert-type`);
+    console.log(`Rutas Habilitadas: /patient, /device, /room, /alert, /alert-type, /medical-condition, /emergency-contact, /patient-wearable, /patient-condition, /patient-contact`);
     console.log(`Sistema protegido mediante Keycloak. Enviar JWT en headers Authorization: Bearer TOKEN`);
 });

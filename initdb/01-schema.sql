@@ -1,3 +1,6 @@
+-- Continuar aunque existan errores (ej: tabla ya existe ORA-00955)
+WHENEVER SQLERROR CONTINUE
+
 CREATE TABLE ROOM (
     ROOMID VARCHAR2(50) PRIMARY KEY,
     FLOOR NUMBER,
