@@ -1,31 +1,28 @@
 {
   "name": "proyecto_electiva2_node",
   "version": "1.0.0",
-  "description": "Proyecto Node.js para integrar Apache Kafka y Keycloak",
-  "main": "main.js",
+  "description": "",
+  "main": "ClienteUnivalle.js",
   "scripts": {
-    "start": "node main.js",
-    "dev": "node --watch main.js",
-    "docker:up": "docker compose up -d",
-    "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f",
-    "docker:build": "docker compose build"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "dependencies": {
-    "dotenv": "^16.4.5",
-    "express": "^4.21.2",
-    "jsonwebtoken": "^9.0.2",
-    "jwks-rsa": "^3.2.0",
-    "kafkajs": "^2.2.4",
-    "oracledb": "^6.6.0"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/felipe12l/Proyecto_Electiva2_Node.git"
   },
-  "keywords": [
-    "node",
-    "kafka",
-    "keycloak",
-    "express",
-    "kafkajs"
-  ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/felipe12l/Proyecto_Electiva2_Node/issues"
+  },
+  "homepage": "https://github.com/felipe12l/Proyecto_Electiva2_Node#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "kafkajs": "^2.2.4",
+    "keycloak-connect": "^26.1.1",
+    "openid-client": "^6.8.2",
+    "oracledb": "^6.10.0"
+  }
 }

@@ -1,0 +1,41 @@
+{
+  "id": "Ancianato",
+  "realm": "Ancianato",
+  "enabled": true,
+  "clients": [
+    {
+      "clientId": "12",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "aPGVoEY5b2uXbrz134Fe4H1LoKYHvJ3P",
+      "redirectUris": [
+        "http://localhost:6000/*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect"
+    }
+  ],
+  "users": [
+    {
+      "username": "testuser",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "1234",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

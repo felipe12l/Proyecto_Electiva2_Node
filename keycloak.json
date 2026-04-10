@@ -1,0 +1,12 @@
+{
+  "web": {
+    "client_id": "12",
+    "client_secret": "aPGVoEY5b2uXbrz134Fe4H1LoKYHvJ3P",
+    "issuer": "http://localhost:8082/realms/Ancianato",
+    "auth_uri": "http://localhost:8082/realms/Ancianato/protocol/openid-connect/auth",
+    "token_uri": "http://localhost:8082/realms/Ancianato/protocol/openid-connect/token",
+    "userinfo_uri": "http://localhost:8082/realms/Ancianato/protocol/openid-connect/userinfo",
+    "redirect_uris": ["http://localhost:6000/*"],
+    "end_session_uri": "http://localhost:8082/realms/Ancianato/protocol/openid-connect/logout"
+  }
+}
