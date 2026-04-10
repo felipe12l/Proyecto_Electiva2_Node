@@ -46,45 +46,47 @@ async function triggerKafka(req, action, resultData) {
 // ==========================================
 // RUTAS PARA PACIENTES (PATIENT) -> 192.168.1.2
 // ==========================================
-app.post('/patient', async (req, res) => {
-    // Si envían username y password, tratamos esto como el LOGIN
-    if (req.body.username && req.body.password) {
-        // Obtenemos token manualmente pegándole al endpoint del issuer en keycloak.json
-        try {
-            const keycloakConfig = require('./keycloak.json');
-            const tokenUrl = keycloakConfig.web.token_uri;
-            const body = new URLSearchParams({
-                client_id: keycloakConfig.web.client_id,
-                client_secret: keycloakConfig.web.client_secret,
-                grant_type: 'password', // Flow de ROPC
-                username: req.body.username,
-                password: req.body.password
-            });
-
-            const kcRes = await fetch(tokenUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: body.toString()
-            });
-
-            const data = await kcRes.json();
-            if(!kcRes.ok) return res.status(401).json({ error: 'Credenciales inválidas o Keycloak inaccesible', detail: data });
-            return res.json({ access_token: data.access_token });
-        } catch(err) {
-            return res.status(500).json({ error: 'Fallo al autenticar contra Keycloak' });
-        }
+app.post('/login', async (req, res) => {
+    // Validamos que envíen las credenciales para el inicio de sesión
+    if (!req.body.username || !req.body.password) {
+        return res.status(400).json({ error: 'Se requiere username y password para el login' });
     }
 
-    // SI NO ES LOGIN, ES CREATE PACIENTE -> Proteger con keycloak
-    keycloak.protect()(req, res, async () => {
-        try {
-            const newPatient = await PatientDAO.create(req.body);
-            await triggerKafka(req, 'CREATE_PATIENT', newPatient);
-            res.status(201).json(newPatient);
-        } catch (err) {
-            res.status(500).json({ error: err.message });
-        }
-    });
+    // Obtenemos token manualmente pegándole al endpoint del issuer en keycloak.json
+    try {
+        const keycloakConfig = require('./keycloak.json');
+        const tokenUrl = keycloakConfig.web.token_uri;
+        const body = new URLSearchParams({
+            client_id: keycloakConfig.web.client_id,
+            client_secret: keycloakConfig.web.client_secret,
+            grant_type: 'password', // Flow de ROPC
+            username: req.body.username,
+            password: req.body.password
+        });
+
+        const kcRes = await fetch(tokenUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString()
+        });
+
+        const data = await kcRes.json();
+        if(!kcRes.ok) return res.status(401).json({ error: 'Credenciales inválidas o Keycloak inaccesible', detail: data });
+        return res.json({ access_token: data.access_token });
+    } catch(err) {
+        return res.status(500).json({ error: 'Fallo al autenticar contra Keycloak' });
+    }
+});
+
+// CREATE PACIENTE -> Protegido con keycloak
+app.post('/patient', keycloak.protect(), async (req, res) => {
+    try {
+        const newPatient = await PatientDAO.create(req.body);
+        await triggerKafka(req, 'CREATE_PATIENT', newPatient);
+        res.status(201).json(newPatient);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.get('/patient', keycloak.protect(), async (req, res) => {
