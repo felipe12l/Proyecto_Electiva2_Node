@@ -3,11 +3,13 @@ const oracledb = require('oracledb');
 // Forzar modo Thin: no requiere Oracle Client instalado localmente
 oracledb.thin = true;
 
+const DB_HOST = process.env.DB_HOST || 'localhost';
+
 const dbConfig = {
-  user: "jorgeuptc",
-  password: "uptc",
+  user: process.env.DB_USER || "jorgeuptc",
+  password: process.env.DB_PASSWORD || "uptc",
   connectString:
-    "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=localhost)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=XEPDB1)))"
+    `(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=${DB_HOST})(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=XEPDB1)))`
 };
 
 /**

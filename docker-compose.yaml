@@ -51,5 +51,8 @@ services:
       - APP_USER=jorgeuptc
       - APP_USER_PASSWORD=uptc
     volumes:
-      - ./oracledata:/opt/oracle/oradata
+      - oracle_data:/opt/oracle/oradata
       - ./initdb:/container-entrypoint-initdb.d
+
+volumes:
+  oracle_data:
