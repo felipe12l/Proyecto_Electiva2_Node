@@ -20,8 +20,27 @@ app.use(session({
     store: memoryStore
 }));
 
-// Keycloak lee automáticamente keycloak.json desde la raíz
-const keycloak = new Keycloak({ store: memoryStore });
+// Leemos el keycloak.json (que descargaste en formato OIDC) y lo mapeamos 
+// al formato estricto que requiere "keycloak-connect".
+const kcRawConfig = require('./keycloak.json');
+const authServerUrl = kcRawConfig.web.issuer.split('/realms/')[0] + '/'; // = "http://localhost:8082/"
+const realmName = kcRawConfig.web.issuer.split('/realms/')[1]; // = "Ancianato"
+
+const keycloakConfig = {
+    realm: realmName,
+    "auth-server-url": authServerUrl,
+    "ssl-required": "none",
+    resource: kcRawConfig.web.client_id,
+    credentials: {
+        secret: kcRawConfig.web.client_secret
+    },
+    // CRÍTICO: "bearer-only" en true indica que tu API no tiene interfaz web.
+    // Si alguien entra sin token o por navegador, responderá 401 Unauthorized
+    // en vez de intentar redirigirlo a una página de login.
+    "bearer-only": true 
+};
+
+const keycloak = new Keycloak({ store: memoryStore }, keycloakConfig);
 app.use(keycloak.middleware());
 
 // ==========================================
@@ -31,7 +50,21 @@ app.use(keycloak.middleware());
  * Emite un evento a Kafka indicando el cambio en DB
  */
 async function triggerKafka(req, action, resultData) {
-    const topic = 'api-events'; // Topic genérico, o ajustarlo si ocupan otro
+    // Extraemos la primera parte de la ruta (ej: de "/patient/1" obtenemos "patient")
+    const entity = req.originalUrl.split('/')[1];
+
+    // Mapeamos la ruta al nombre de los topics que tienes en tu interfaz
+    const topicMap = {
+        'patient': 'topic-servicio-patients',
+        'alert': 'topic-servicio-alert',
+        'alert-type': 'topic-servicio-alert-types',
+        'device': 'topic-servicio-devices', // Topic sugerido si creas uno de dispositivos
+        'room': 'topic-servicio-rooms',     // Topic sugerido si creas uno de cuartos
+        'login': 'topic-autenticacion'
+    };
+    
+    const topic = topicMap[entity] || 'api-events';
+
     const msg = {
         method: req.method,
         path: req.originalUrl,
@@ -39,6 +72,7 @@ async function triggerKafka(req, action, resultData) {
         data: resultData || req.body,
         timestamp: new Date().toISOString()
     };
+    
     await emitEvent(topic, msg);
 }
 
